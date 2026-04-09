@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Identity / JWKS / Entitlement Guardian</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+background: #0f172a;
+color: #e2e8f0;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+}
+.header {
+background: #1e293b;
+border-bottom: 1px solid #334155;
+padding: 1rem 2rem;
+display: flex;
+align-items: center;
+gap: 1rem;
+}
+.header h1 { font-size: 1.25rem; color: #f8fafc; }
+.header .tagline { color: #94a3b8; font-size: 0.875rem; }
+.container {
+display: grid;
+grid-template-columns: 320px 1fr 280px;
+gap: 1rem;
+padding: 1rem 2rem;
+flex: 1;
+}
+.panel {
+background: #1e293b;
+border: 1px solid #334155;
+border-radius: 8px;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+}
+.panel-header {
+background: #334155;
+padding: 0.75rem 1rem;
+border-bottom: 1px solid #475569;
+font-weight: 600;
+font-size: 0.875rem;
+color: #f8fafc;
+}
+.panel-content { padding: 1rem; overflow-y: auto; flex: 1; }
+.incident-card {
+background: #0f172a;
+border: 2px solid #334155;
+border-radius: 6px;
+padding: 1rem;
+margin-bottom: 0.75rem;
+cursor: pointer;
+transition: all 0.2s;
+}
+.incident-card:hover { border-color: #64748b; transform: translateY(-1px); }
+.incident-card.selected { border-color: #3b82f6; background: #1e3a5f; }
+.incident-card.security { border-color: #ef4444; }
+.incident-card.auth { border-color: #f97316; }
+.incident-title { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.incident-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.75rem; color: #94a3b8; }
+.badge {
+padding: 0.125rem 0.5rem;
+border-radius: 4px;
+font-size: 0.75rem;
+font-weight: 600;
+}
+.badge-p1 { background: #ef4444; color: white; }
+.badge-p2 { background: #f97316; color: white; }
+.badge-compliance { background: #7c3aed; color: white; }
+.detail-section { margin-bottom: 1.5rem; }
+.detail-section h3 {
+color: #f8fafc;
+font-size: 1rem;
+margin-bottom: 0.75rem;
+border-bottom: 1px solid #334155;
+padding-bottom: 0.5rem;
+}
+.evidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.evidence-item { background: #0f172a; padding: 0.75rem; border-radius: 4px; }
+.evidence-label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.25rem; }
+.evidence-value { font-weight: 600; color: #f8fafc; }
+.timeline-item {
+padding: 0.5rem 0;
+border-left: 2px solid #334155;
+padding-left: 1rem;
+margin-left: 0.5rem;
+position: relative;
+font-size: 0.875rem;
+}
+.timeline-item::before {
+content: '';
+position: absolute;
+left: -5px;
+top: 0.75rem;
+width: 8px;
+height: 8px;
+background: #3b82f6;
+border-radius: 50%;
+}
+.btn {
+padding: 0.5rem 1rem;
+border: none;
+border-radius: 6px;
+font-size: 0.875rem;
+cursor: pointer;
+transition: all 0.2s;
+font-weight: 500;
+}
+.btn-primary { background: #3b82f6; color: white; }
+.btn-primary:hover { background: #2563eb; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-danger:hover { background: #dc2626; }
+.btn-secondary { background: #334155; color: #f8fafc; }
+.btn-secondary:hover { background: #475569; }
+.btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
+.simulation-btn {
+width: 100%;
+margin-bottom: 0.5rem;
+text-align: left;
+}
+.health-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.health-item { background: #0f172a; padding: 0.5rem; border-radius: 4px; text-align: center; }
+.health-value { font-weight: 600; font-size: 0.875rem; }
+.health-operational { color: #10b981; }
+.health-degraded { color: #f97316; }
+.health-down { color: #ef4444; }
+.trust-marker { background: #0f172a; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; font-size: 0.75rem; }
+.empty-state { text-align: center; color: #94a3b8; padding: 3rem 1rem; }
+.empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+.loading { opacity: 0.5; pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="header">
+<h1>Identity / JWKS / Entitlement Guardian</h1>
+<span class="tagline">When auth breaks at 2am, this tells you which keys rotated wrong.</span>
+</div>
+<div class="container">
+<div class="panel" id="incident-list">
+<div class="panel-header">Incidents</div>
+<div class="panel-content" id="incidents-container">
+<div class="empty-state">
+<div class="empty-state-icon">📋</div>
+<div>No incidents yet</div>
+<div style="font-size: 0.875rem; margin-top: 0.5rem;">Run a simulation to see incidents</div>
+</div>
+</div>
+</div>
+
+<div class="panel" id="incident-detail">
+<div class="panel-header">Incident Detail</div>
+<div class="panel-content" id="detail-container">
+<div class="empty-state">
+<div class="empty-state-icon">🔍</div>
+<div>Select an incident to view details</div>
+</div>
+</div>
+</div>
+
+<div class="panel" id="context-panel">
+<div class="panel-header">Simulation & Audits</div>
+<div class="panel-content">
+<button class="btn btn-primary simulation-btn" onclick="simulate('jwks-rotation')">JWKS Rotation Failure</button>
+<button class="btn btn-danger simulation-btn" onclick="simulate('rls-bypass')">RLS Bypass</button>
+<button class="btn btn-danger simulation-btn" onclick="simulate('cross-tenant')">Cross-Tenant Exposure</button>
+<button class="btn btn-secondary simulation-btn" onclick="reset()">Reset Console</button>
+
+<h4 style="margin: 1.5rem 0 0.75rem; font-size: 0.875rem; color: #94a3b8;">Auditors</h4>
+<button class="btn btn-secondary btn-sm simulation-btn" onclick="runAudit('jwks')">Run JWKS Audit</button>
+<button class="btn btn-secondary btn-sm simulation-btn" onclick="runAudit('tenants')">Run Tenant Audit</button>
+<button class="btn btn-secondary btn-sm simulation-btn" onclick="runAudit('entitlements')">Run Entitlement Audit</button>
+
+<div class="panel-header" style="margin-top: 1.5rem;">Component Health</div>
+<div class="health-grid" id="health-grid"></div>
+
+<div id="trust-markers"></div>
+</div>
+</div>
+</div>
+
+<script>
+let incidents = [];
+let selectedIncidentId = null;
+
+async function loadIncidents() {
+try {
+const res = await fetch('/api/incidents');
+incidents = await res.json();
+renderIncidents();
+} catch (err) {
+console.error('Failed to load incidents:', err);
+}
+}
+
+async function loadHealth() {
+try {
+const res = await fetch('/api/health');
+const health = await res.json();
+renderHealth(health);
+} catch (err) {
+console.error('Failed to load health:', err);
+}
+}
+
+function renderIncidents() {
+const container = document.getElementById('incidents-container');
+
+if (incidents.length === 0) {
+container.innerHTML = `<div class="empty-state">
+<div class="empty-state-icon">📋</div>
+<div>No incidents yet</div>
+<div style="font-size: 0.875rem; margin-top: 0.5rem;">Run a simulation to see incidents</div>
+</div>`;
+return;
+}
+
+container.innerHTML = incidents.map(inc => {
+const isSecurity = inc.compliance_impact && (inc.compliance_impact.includes('BREACH') || inc.compliance_impact.includes('BYPASS'));
+const isAuth = inc.scenario_id === 'jwks-rotation-failure';
+const cardClass = isSecurity ? 'security' : isAuth ? 'auth' : '';
+
+return `<div class="incident-card ${cardClass} ${inc.id === selectedIncidentId ? 'selected' : ''}"
+onclick="selectIncident('${inc.id}')">
+<div class="incident-title">${inc.title}</div>
+<div class="incident-meta">
+<span class="badge badge-${inc.severity.toLowerCase()}">${inc.severity}</span>
+<span class="badge badge-compliance">${inc.compliance_impact}</span>
+<span>${inc.affected_tenants?.length || 0} tenants</span>
+<span>${new Date(inc.opened_at).toLocaleTimeString()}</span>
+</div>
+</div>`;
+}).join('');
+}
+
+function renderHealth(health) {
+const grid = document.getElementById('health-grid');
+grid.innerHTML = Object.entries(health).map(([component, status]) => {
+const statusClass = status === 'operational' ? 'health-operational' :
+status === 'degraded' ? 'health-degraded' : 'health-down';
+return `<div class="health-item">
+<div style="font-size: 0.75rem; color: #94a3b8;">${component}</div>
+<div class="health-value ${statusClass}">${status}</div>
+</div>`;
+}).join('');
+}
+
+async function selectIncident(id) {
+selectedIncidentId = id;
+renderIncidents();
+
+const incident = incidents.find(i => i.id === id);
+if (!incident) return;
+
+try {
+const [timeline, evidence, summary] = await Promise.all([
+fetch(`/api/incidents/${id}/timeline.json`).then(r => r.json()),
+fetch(`/api/incidents/${id}/evidence-bundle.json`).then(r => r.json()),
+fetch(`/api/incidents/${id}/summary.md`).then(r => r.text())
+]);
+
+renderDetail(incident, timeline, evidence, summary);
+} catch (err) {
+console.error('Failed to load incident details:', err);
+}
+}
+
+function renderDetail(incident, timeline, evidence, summary) {
+const container = document.getElementById('detail-container');
+
+let evidenceHtml = '';
+if (evidence.jwks_state) {
+evidenceHtml += `
+<div class="detail-section">
+<h3>JWKS State</h3>
+<div class="evidence-grid">
+<div class="evidence-item"><div class="evidence-label">Current Key</div><div class="evidence-value">${evidence.jwks_state.current_kid}</div></div>
+<div class="evidence-item"><div class="evidence-label">Previous Key</div><div class="evidence-value">${evidence.jwks_state.previous_kid || 'N/A'}</div></div>
+<div class="evidence-item"><div class="evidence-label">Stale Validators</div><div class="evidence-value">${evidence.jwks_state.validators_with_stale_cache}</div></div>
+<div class="evidence-item"><div class="evidence-label">Rotation Age</div><div class="evidence-value">${evidence.jwks_state.rotation_age_seconds}s</div></div>
+</div>
+</div>`;
+}
+
+if (evidence.exposed_keys && evidence.exposed_keys.length > 0) {
+evidenceHtml += `
+<div class="detail-section">
+<h3>Exposed Keys</h3>
+${evidence.exposed_keys.map(k => `<div class="evidence-item"><div class="evidence-label">${k.key_type}</div><div class="evidence-value">${k.exposed_in}</div></div>`).join('')}
+</div>`;
+}
+
+if (evidence.cross_tenant_violations && evidence.cross_tenant_violations.length > 0) {
+evidenceHtml += `
+<div class="detail-section">
+<h3>Cross-Tenant Violations</h3>
+<div style="font-size: 0.875rem;">${evidence.cross_tenant_violations.length} violations detected</div>
+</div>`;
+}
+
+container.innerHTML = `
+<div class="detail-section">
+<h3>Overview</h3>
+<div style="font-size: 0.875rem;">${incident.title}</div>
+<div style="margin-top: 0.5rem; font-size: 0.875rem; color: #94a3b8;">
+<strong>Affected:</strong> ${incident.affected_tenants?.length || 0} tenants |
+<strong>Compliance:</strong> ${incident.compliance_impact}
+</div>
+</div>
+
+${evidenceHtml}
+
+<div class="detail-section">
+<h3>Timeline</h3>
+${timeline.slice(0, 5).map(t => `<div class="timeline-item">
+<strong>${new Date(t.timestamp).toLocaleTimeString()}</strong> - ${t.message}
+</div>`).join('')}
+</div>
+
+<div class="detail-section">
+<h3>Recommended Action</h3>
+<div style="font-size: 0.875rem;">${evidence.recommended_action}</div>
+</div>
+
+<div class="detail-section">
+<h3>Runbook</h3>
+<a href="${incident.runbook_ref}" style="color: #3b82f6; font-size: 0.875rem;">${incident.runbook_ref}</a>
+</div>
+`;
+}
+
+async function simulate(type) {
+const btn = event.target;
+btn.classList.add('loading');
+btn.disabled = true;
+
+try {
+await fetch(`/api/simulate/${type}`, { method: 'POST' });
+setTimeout(() => {
+loadIncidents();
+loadHealth();
+}, 1000);
+} catch (err) {
+alert('Simulation failed: ' + err.message);
+} finally {
+btn.classList.remove('loading');
+btn.disabled = false;
+}
+}
+
+async function runAudit(type) {
+try {
+await fetch(`/api/audit/${type}`, { method: 'POST' });
+alert(`${type} audit completed. Check console for results.`);
+} catch (err) {
+alert('Audit failed: ' + err.message);
+}
+}
+
+async function reset() {
+await fetch('/api/reset', { method: 'POST' });
+incidents = [];
+selectedIncidentId = null;
+renderIncidents();
+loadHealth();
+document.getElementById('detail-container').innerHTML = `<div class="empty-state">
+<div class="empty-state-icon">🔍</div>
+<div>Select an incident to view details</div>
+</div>`;
+}
+
+// Auto-refresh
+setInterval(loadIncidents, 3000);
+setInterval(loadHealth, 3000);
+
+// Initial load
+loadIncidents();
+loadHealth();
+</script>
+</body>
+</html>

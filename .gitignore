@@ -1,0 +1,9 @@
+node_modules/
+package-lock.json
+runtime/*.json
+runtime/logs.ndjson
+artifacts/incidents/
+artifacts/audits/
+.DS_Store
+.env
+*.log

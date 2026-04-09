@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Identity / JWKS / Entitlement Guardian</title>
+<style>
+:root {
+  --bg-primary: #09090b; --bg-secondary: #111114; --bg-tertiary: #18181b;
+  --bg-hover: #1e1e22; --border-subtle: #27272a; --border-medium: #3f3f46;
+  --text-primary: #fafafa; --text-secondary: #a1a1aa; --text-muted: #71717a;
+  --accent-blue: #3b82f6; --accent-cyan: #06b6d4; --accent-purple: #8b5cf6;
+  --severity-p1: #dc2626; --severity-p1-bg: rgba(220,38,38,0.12);
+  --severity-p2: #ea580c; --severity-p2-bg: rgba(234,88,12,0.12);
+  --severity-p3: #ca8a04; --severity-p3-bg: rgba(202,138,4,0.12);
+  --status-open: #22c55e; --status-open-bg: rgba(34,197,94,0.12);
+  --health-operational: #22c55e; --health-degraded: #f59e0b;
+  --health-down: #ef4444; --health-unknown: #71717a;
+  --radius-sm: 0.375rem; --radius-md: 0.5rem; --radius-lg: 0.75rem;
+  --font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; font-size: 0.875rem; line-height: 1.5; }
+.app-header { background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle); padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.app-header-left { display: flex; align-items: center; gap: 0.75rem; }
+.app-logo { width: 28px; height: 28px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: #fff; }
+.app-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+.app-subtitle { font-size: 0.75rem; color: var(--text-muted); }
+.app-header-right { display: flex; align-items: center; gap: 1rem; }
+.header-badge { font-size: 0.6875rem; padding: 0.25rem 0.625rem; border-radius: 9999px; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); color: var(--text-secondary); font-weight: 500; }
+.app-layout { display: grid; grid-template-columns: 340px 1fr 300px; height: calc(100vh - 53px); }
+.incident-queue { background: var(--bg-secondary); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; overflow: hidden; }
+.queue-header { padding: 1rem 1rem 0.75rem; border-bottom: 1px solid var(--border-subtle); }
+.queue-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.5rem; }
+.queue-count { font-size: 0.6875rem; color: var(--text-muted); }
+.queue-list { flex: 1; overflow-y: auto; padding: 0.5rem; }
+.queue-list::-webkit-scrollbar { width: 6px; } .queue-list::-webkit-scrollbar-track { background: transparent; } .queue-list::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+.incident-card { background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.875rem; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.15s ease; }
+.incident-card:hover { border-color: var(--border-medium); background: var(--bg-hover); }
+.incident-card.active { border-color: var(--accent-blue); background: rgba(59,130,246,0.06); }
+.card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.5rem; }
+.card-id { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--text-muted); }
+.card-severity { font-size: 0.625rem; font-weight: 700; padding: 0.125rem 0.375rem; border-radius: var(--radius-sm); text-transform: uppercase; letter-spacing: 0.04em; }
+.card-severity.p1 { background: var(--severity-p1-bg); color: var(--severity-p1); }
+.card-severity.p2 { background: var(--severity-p2-bg); color: var(--severity-p2); }
+.card-severity.p3 { background: var(--severity-p3-bg); color: var(--severity-p3); }
+.card-title { font-size: 0.8125rem; font-weight: 500; color: var(--text-primary); margin-bottom: 0.5rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.6875rem; color: var(--text-muted); }
+.card-meta-item { display: flex; align-items: center; gap: 0.25rem; }
+.card-compliance { font-size: 0.625rem; padding: 0.125rem 0.375rem; border-radius: var(--radius-sm); background: rgba(139,92,246,0.12); color: var(--accent-purple); font-weight: 600; margin-top: 0.5rem; }
+.incident-detail { overflow-y: auto; padding: 1.5rem; }
+.incident-detail::-webkit-scrollbar { width: 6px; } .incident-detail::-webkit-scrollbar-track { background: transparent; } .incident-detail::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+.detail-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: var(--text-muted); }
+.detail-empty-icon { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.4; }
+.detail-empty-title { font-size: 1rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.5rem; }
+.detail-empty-desc { font-size: 0.8125rem; max-width: 320px; }
+.detail-header { margin-bottom: 1.5rem; }
+.detail-header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.75rem; }
+.detail-id { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+.detail-title { font-size: 1.25rem; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.detail-badges { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.detail-badge { font-size: 0.6875rem; font-weight: 600; padding: 0.25rem 0.625rem; border-radius: var(--radius-sm); text-transform: uppercase; letter-spacing: 0.04em; }
+.detail-badge.p1 { background: var(--severity-p1-bg); color: var(--severity-p1); }
+.detail-badge.open { background: var(--status-open-bg); color: var(--status-open); }
+.detail-badge.compliance { background: rgba(139,92,246,0.12); color: var(--accent-purple); }
+.detail-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+.meta-block { background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.75rem; }
+.meta-block-label { font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.25rem; }
+.meta-block-value { font-size: 0.8125rem; color: var(--text-primary); font-weight: 500; }
+.meta-block-value.mono { font-family: var(--font-mono); font-size: 0.75rem; }
+.detail-section { margin-bottom: 1.5rem; }
+.section-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.section-icon { width: 16px; height: 16px; color: var(--text-muted); }
+.section-title { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.section-content { background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem; }
+.timeline-list { position: relative; }
+.timeline-item { display: flex; gap: 0.75rem; padding: 0.5rem 0; position: relative; }
+.timeline-item:not(:last-child)::before { content: ''; position: absolute; left: 7px; top: 24px; bottom: -4px; width: 1px; background: var(--border-subtle); }
+.timeline-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border-medium); background: var(--bg-primary); flex-shrink: 0; margin-top: 2px; }
+.timeline-dot.event { border-color: var(--text-muted); }
+.timeline-dot.promotion { border-color: var(--accent-blue); background: var(--accent-blue); }
+.timeline-dot.evidence { border-color: var(--accent-purple); background: var(--accent-purple); }
+.timeline-content { flex: 1; }
+.timeline-time { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--text-muted); margin-bottom: 0.125rem; }
+.timeline-message { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.4; }
+.timeline-service { font-size: 0.625rem; font-weight: 600; padding: 0.0625rem 0.375rem; border-radius: var(--radius-sm); background: var(--bg-primary); border: 1px solid var(--border-subtle); color: var(--text-muted); margin-right: 0.375rem; }
+.evidence-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
+.evidence-metric { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.75rem; text-align: center; }
+.evidence-metric-value { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+.evidence-metric-label { font-size: 0.625rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.25rem; }
+.evidence-metric.alert { border-color: var(--severity-p1); }
+.evidence-metric.alert .evidence-metric-value { color: var(--severity-p1); }
+.context-panel { background: var(--bg-secondary); border-left: 1px solid var(--border-subtle); display: flex; flex-direction: column; overflow-y: auto; }
+.context-panel::-webkit-scrollbar { width: 6px; } .context-panel::-webkit-scrollbar-track { background: transparent; } .context-panel::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+.context-section { padding: 1rem; border-bottom: 1px solid var(--border-subtle); }
+.context-title { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.75rem; }
+.health-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.health-row { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.625rem; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.health-row.implicated { border-color: var(--severity-p2); background: var(--severity-p2-bg); }
+.health-row-left { display: flex; align-items: center; gap: 0.5rem; }
+.health-dot { width: 8px; height: 8px; border-radius: 50%; }
+.health-dot.operational { background: var(--health-operational); } .health-dot.degraded { background: var(--health-degraded); } .health-dot.down { background: var(--health-down); } .health-dot.unknown { background: var(--health-unknown); }
+.health-name { font-size: 0.75rem; font-weight: 500; color: var(--text-primary); }
+.health-status-text { font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.health-status-text.operational { color: var(--health-operational); } .health-status-text.degraded { color: var(--health-degraded); } .health-status-text.down { color: var(--health-down); } .health-status-text.unknown { color: var(--health-unknown); }
+.trust-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.trust-item { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.75rem; color: var(--text-secondary); }
+.trust-icon { width: 14px; height: 14px; color: var(--accent-cyan); flex-shrink: 0; margin-top: 1px; }
+.trust-label { color: var(--text-muted); }
+.trust-value { color: var(--text-primary); font-weight: 500; }
+@media (max-width: 1200px) { .app-layout { grid-template-columns: 300px 1fr 240px; } }
+@media (max-width: 900px) { .app-layout { grid-template-columns: 1fr; height: auto; } .incident-queue { border-right: none; border-bottom: 1px solid var(--border-subtle); max-height: 400px; } .context-panel { border-left: none; border-top: 1px solid var(--border-subtle); } }
+</style>
+</head>
+<body>
+<header class="app-header">
+<div class="app-header-left">
+<div class="app-logo">IG</div>
+<div><div class="app-title">Identity / JWKS / Entitlement Guardian</div><div class="app-subtitle">When auth breaks at 2am, this tells you which keys rotated wrong.</div></div>
+</div>
+<div class="app-header-right">
+<span class="header-badge" id="incident-count-badge">3 incidents</span>
+<span class="header-badge" id="health-status-badge">Health: 2 degraded</span>
+</div>
+</header>
+<div class="app-layout">
+<aside class="incident-queue">
+<div class="queue-header"><div class="queue-title">Incident Queue</div><div class="queue-count" id="queue-count">3 incidents in queue</div></div>
+<div class="queue-list" id="incident-list"></div>
+</aside>
+<main class="incident-detail" id="incident-detail">
+<div class="detail-empty"><div class="detail-empty-icon">🔍</div><div class="detail-empty-title">Select an incident</div><div class="detail-empty-desc">Choose an incident from the queue to view its timeline, evidence, and recommended actions.</div></div>
+</main>
+<aside class="context-panel">
+<div class="context-section">
+<div class="context-title">Component Health</div>
+<div class="health-list" id="health-list"></div>
+</div>
+<div class="context-section" id="trust-section" style="display:none;">
+<div class="context-title">Incident Context</div>
+<div class="trust-list" id="trust-list"></div>
+</div>
+</aside>
+</div>
+<script>
+const incidents = [
+  {
+    id: "inc_jwks_001",
+    title: "JWKS rotation mismatch causing authentication failures",
+    severity: "P1",
+    status: "OPEN",
+    compliance_impact: "AUTH_OUTAGE",
+    opened_at: "2026-04-09T06:15:00Z",
+    affected_tenants: ["tenant_acme", "tenant_globex", "tenant_stark"],
+    evidence: {
+      jwks_state: { current_kid: "key_2026_002", previous_kid: "key_2026_001", validators_with_stale_cache: 7, rotation_age_seconds: 180 },
+      auth_failure_metrics: { failure_rate_pct: 92, affected_tenants: 7, failed_validations: 1543 }
+    },
+    timeline: [
+      { timestamp: "2026-04-09T06:10:00Z", service: "jwks-server", message: "Key rotation initiated", type: "event" },
+      { timestamp: "2026-04-09T06:12:00Z", service: "api", message: "Auth failures detected", type: "event" },
+      { timestamp: "2026-04-09T06:15:00Z", service: "intelligence-core", message: "Incident promoted", type: "promotion" }
+    ],
+    runbook_ref: "runbooks/jwks-rotation-failure.md"
+  },
+  {
+    id: "inc_rls_002",
+    title: "Service role key exposed in frontend bundle bypassing RLS",
+    severity: "P1",
+    status: "OPEN",
+    compliance_impact: "DATA_BREACH_POTENTIAL",
+    opened_at: "2026-04-09T05:30:00Z",
+    affected_tenants: ["tenant_all"],
+    evidence: {
+      exposed_keys: [{ key_type: "service_role", exposed_in: "frontend_bundle.js" }],
+      cross_tenant_queries: 5,
+      data_exposed: "All tenant data accessible"
+    },
+    timeline: [
+      { timestamp: "2026-04-09T05:25:00Z", service: "security-scanner", message: "Key exposure detected", type: "event" },
+      { timestamp: "2026-04-09T05:28:00Z", service: "api", message: "RLS bypass confirmed", type: "evidence" },
+      { timestamp: "2026-04-09T05:30:00Z", service: "intelligence-core", message: "Incident promoted", type: "promotion" }
+    ],
+    runbook_ref: "runbooks/rls-bypass.md"
+  },
+  {
+    id: "inc_cross_003",
+    title: "Missing tenant_id filter exposing cross-tenant data",
+    severity: "P1",
+    status: "OPEN",
+    compliance_impact: "GDPR_ARTICLE_32_BREACH",
+    opened_at: "2026-04-09T04:45:00Z",
+    affected_tenants: ["tenant_acme", "tenant_globex"],
+    evidence: {
+      vulnerable_query: "getUserDashboard",
+      missing_filter: "tenant_id",
+      cross_tenant_violations: [{ source_tenant: "tenant_acme", exposed_tenant: "tenant_globex", requests: 8 }]
+    },
+    timeline: [
+      { timestamp: "2026-04-09T04:40:00Z", service: "api", message: "Anomalous query pattern detected", type: "event" },
+      { timestamp: "2026-04-09T04:43:00Z", service: "tenant-auditor", message: "Cross-tenant access confirmed", type: "evidence" },
+      { timestamp: "2026-04-09T04:45:00Z", service: "intelligence-core", message: "Incident promoted", type: "promotion" }
+    ],
+    runbook_ref: "runbooks/cross-tenant-exposure.md"
+  }
+];
+
+const healthData = { "jwks-server": "operational", "api": "degraded", "auth-validator": "down", "tenant-store": "operational" };
+
+let selectedIncidentId = null;
+
+function renderIncidentList() {
+  const container = document.getElementById('incident-list');
+  container.innerHTML = incidents.map(inc => {
+    const isActive = inc.id === selectedIncidentId;
+    return '<div class="incident-card ' + (isActive ? 'active' : '') + '" onclick="selectIncident(\'' + inc.id + '\')">' +
+      '<div class="card-header"><span class="card-id">' + inc.id + '</span><span class="card-severity ' + inc.severity.toLowerCase() + '">' + inc.severity + '</span></div>' +
+      '<div class="card-title">' + inc.title + '</div>' +
+      '<div class="card-meta"><span class="card-meta-item">' + inc.affected_tenants.length + ' tenants</span><span class="card-meta-item">' + new Date(inc.opened_at).toLocaleTimeString() + '</span></div>' +
+      '<div class="card-compliance">' + inc.compliance_impact + '</div></div>';
+  }).join('');
+}
+
+function selectIncident(id) {
+  selectedIncidentId = id;
+  const inc = incidents.find(i => i.id === id);
+  if (inc) { renderIncidentDetail(inc); renderIncidentList(); renderTrustPanel(inc); }
+}
+
+function renderIncidentDetail(inc) {
+  const container = document.getElementById('incident-detail');
+  let evidenceHtml = '';
+  
+  if (inc.evidence.jwks_state) {
+    evidenceHtml += '<div class="detail-section"><div class="section-header"><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span class="section-title">JWKS State</span></div><div class="section-content"><div class="evidence-grid">' +
+      '<div class="evidence-metric"><div class="evidence-metric-value">' + inc.evidence.jwks_state.current_kid + '</div><div class="evidence-metric-label">Current Key</div></div>' +
+      '<div class="evidence-metric"><div class="evidence-metric-value">' + inc.evidence.jwks_state.previous_kid + '</div><div class="evidence-metric-label">Previous Key</div></div>' +
+      '<div class="evidence-metric alert"><div class="evidence-metric-value">' + inc.evidence.jwks_state.validators_with_stale_cache + '</div><div class="evidence-metric-label">Stale Validators</div></div>' +
+      '<div class="evidence-metric"><div class="evidence-metric-value">' + inc.evidence.jwks_state.rotation_age_seconds + 's</div><div class="evidence-metric-label">Rotation Age</div></div></div></div></div>';
+  }
+  
+  if (inc.evidence.auth_failure_metrics) {
+    evidenceHtml += '<div class="detail-section"><div class="section-header"><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg><span class="section-title">Auth Failure Metrics</span></div><div class="section-content"><div class="evidence-grid">' +
+      '<div class="evidence-metric alert"><div class="evidence-metric-value">' + inc.evidence.auth_failure_metrics.failure_rate_pct + '%</div><div class="evidence-metric-label">Failure Rate</div></div>' +
+      '<div class="evidence-metric"><div class="evidence-metric-value">' + inc.evidence.auth_failure_metrics.affected_tenants + '</div><div class="evidence-metric-label">Affected Tenants</div></div>' +
+      '<div class="evidence-metric"><div class="evidence-metric-value">' + inc.evidence.auth_failure_metrics.failed_validations + '</div><div class="evidence-metric-label">Failed Validations</div></div></div></div></div>';
+  }
+  
+  if (inc.evidence.exposed_keys) {
+    evidenceHtml += '<div class="detail-section"><div class="section-header"><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg><span class="section-title">Exposed Keys</span></div><div class="section-content">' +
+      inc.evidence.exposed_keys.map(k => '<div style="margin-bottom:0.5rem;"><span style="color:var(--severity-p1);font-weight:600;">' + k.key_type + '</span> exposed in <span style="font-family:var(--font-mono);">' + k.exposed_in + '</span></div>').join('') +
+      '<div class="evidence-grid" style="margin-top:0.75rem;"><div class="evidence-metric alert"><div class="evidence-metric-value">' + inc.evidence.cross_tenant_queries + '</div><div class="evidence-metric-label">Cross-Tenant Queries</div></div></div></div></div>';
+  }
+  
+  if (inc.evidence.cross_tenant_violations) {
+    evidenceHtml += '<div class="detail-section"><div class="section-header"><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="section-title">Cross-Tenant Violations</span></div><div class="section-content">' +
+      '<div style="margin-bottom:0.75rem;"><span style="color:var(--text-muted);">Vulnerable Query:</span> <span style="font-family:var(--font-mono);color:var(--severity-p1);">' + inc.evidence.vulnerable_query + '</span></div>' +
+      '<div style="margin-bottom:0.75rem;"><span style="color:var(--text-muted);">Missing Filter:</span> <span style="font-family:var(--font-mono);">' + inc.evidence.missing_filter + '</span></div>' +
+      '<div class="evidence-grid">' + inc.evidence.cross_tenant_violations.map(v => 
+        '<div class="evidence-metric alert"><div class="evidence-metric-value">' + v.requests + '</div><div class="evidence-metric-label">' + v.source_tenant + ' → ' + v.exposed_tenant + '</div></div>'
+      ).join('') + '</div></div></div>';
+  }
+  
+  let html = '<div class="detail-header"><div class="detail-header-top"><div><div class="detail-id">' + inc.id + '</div><div class="detail-title">' + inc.title + '</div></div>' +
+    '<div class="detail-badges"><span class="detail-badge ' + inc.severity.toLowerCase() + '">' + inc.severity + '</span><span class="detail-badge open">' + inc.status + '</span><span class="detail-badge compliance">' + inc.compliance_impact + '</span></div></div>' +
+    '<div class="detail-meta-grid"><div class="meta-block"><div class="meta-block-label">Affected Tenants</div><div class="meta-block-value">' + inc.affected_tenants.join(', ') + '</div></div>' +
+    '<div class="meta-block"><div class="meta-block-label">Opened At</div><div class="meta-block-value mono">' + new Date(inc.opened_at).toLocaleString() + '</div></div>' +
+    '<div class="meta-block"><div class="meta-block-label">Runbook</div><div class="meta-block-value mono">' + inc.runbook_ref + '</div></div></div></div>';
+  
+  html += evidenceHtml;
+  
+  html += '<div class="detail-section"><div class="section-header"><svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="section-title">Timeline</span></div><div class="section-content"><div class="timeline-list">' +
+    inc.timeline.map(t => '<div class="timeline-item"><div class="timeline-dot ' + t.type + '"></div><div class="timeline-content"><div class="timeline-time">' + new Date(t.timestamp).toLocaleTimeString() + '</div><div class="timeline-message"><span class="timeline-service">' + t.service + '</span>' + t.message + '</div></div></div>').join('') +
+    '</div></div></div>';
+  
+  container.innerHTML = html;
+}
+
+function renderHealth() {
+  const container = document.getElementById('health-list');
+  const labels = { "jwks-server": "JWKS Server", "api": "API", "auth-validator": "Auth Validator", "tenant-store": "Tenant Store" };
+  const implicated = selectedIncidentId ? (incidents.find(i => i.id === selectedIncidentId) || {}).affected_tenants || [] : [];
+  container.innerHTML = Object.entries(healthData).map(([key, status]) => {
+    const isImplicated = key === 'auth-validator' || key === 'api';
+    return '<div class="health-row ' + (isImplicated ? 'implicated' : '') + '"><div class="health-row-left"><span class="health-dot ' + status + '"></span><span class="health-name">' + labels[key] + '</span></div><span class="health-status-text ' + status + '">' + status + '</span></div>';
+  }).join('');
+}
+
+function renderTrustPanel(inc) {
+  const section = document.getElementById('trust-section');
+  const list = document.getElementById('trust-list');
+  section.style.display = 'block';
+  list.innerHTML = '<div class="trust-item"><svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><div><span class="trust-label">Compliance Impact:</span> <span class="trust-value">' + inc.compliance_impact + '</span></div></div>' +
+    '<div class="trust-item"><svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><div><span class="trust-label">Affected Tenants:</span> <span class="trust-value">' + inc.affected_tenants.length + '</span></div></div>' +
+    '<div class="trust-item"><svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div><span class="trust-label">Timeline Events:</span> <span class="trust-value">' + inc.timeline.length + '</span></div></div>' +
+    '<div class="trust-item"><svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><div><span class="trust-label">Runbook:</span> <span class="trust-value">' + inc.runbook_ref.split('/').pop() + '</span></div></div>';
+}
+
+renderIncidentList();
+renderHealth();
+</script>
+</body>
+</html>

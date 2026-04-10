@@ -11,7 +11,7 @@ const TENANT_STATE_FILE = path.join(RUNTIME_DIR, 'tenant-state.json');
 const HEALTH_FILE = path.join(RUNTIME_DIR, 'component-health.json');
 const LOGS_FILE = path.join(RUNTIME_DIR, 'logs.ndjson');
 const SCENARIO_FILE = path.join(RUNTIME_DIR, 'scenario-mode.json');
-const INCIDENTS_DIR = path.join(RUNTIME_DIR, 'artifacts', 'incidents');
+const INCIDENTS_DIR = path.join(RUNTIME_DIR, '..', 'artifacts', 'incidents');
 
 // --- Helpers ---
 

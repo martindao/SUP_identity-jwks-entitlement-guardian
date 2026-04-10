@@ -23,6 +23,18 @@ This repo demonstrates a support-first approach to identity incident management,
 - **Security-grade evidence capture** — Immutable snapshots for incident review
 - **Compliance-aware runbooks** — GDPR breach notification checklists, security escalation criteria
 
+## Screenshots
+
+### Empty State — Support Console
+The support console shows an empty state when no incidents are active. Simulation buttons allow triggering identity-specific failure scenarios.
+
+![Empty State](docs/screenshots/empty-state.png)
+
+### Incident Detail View
+When an incident is selected, the detail pane shows identity-specific evidence including JWKS state, affected tenants, timeline, and recommended actions.
+
+![Incident Detail](docs/screenshots/incident-detail.png)
+
 ## Architecture
 
 ```

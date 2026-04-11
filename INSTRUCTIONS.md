@@ -756,3 +756,26 @@ Hiring manager opens GitHub repo:
 6. Decides to interview within 5 minutes
 
 If any step fails, repo is not done.
+
+## Additional Deliverable Requirement
+
+The builder must create these extra files before calling the repo complete:
+
+- `PORTFOLIO_INTEGRATION.md`
+- `SCREENSHOT_PLAN.md`
+
+### `PORTFOLIO_INTEGRATION.md` must include
+- canonical project title
+- role family (SUP / QA / SEC / DATA / CFT)
+- homepage card title
+- one-sentence homepage description
+- category label
+- tag list
+- GitHub CTA label
+- demo-page requirements
+- SVG artwork direction
+
+### `SCREENSHOT_PLAN.md` must include
+- 3-5 required screenshot/GIF shots
+- exact UI states to capture
+- one hero/cover image recommendation for the portfolio page

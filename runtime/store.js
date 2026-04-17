@@ -8,6 +8,8 @@ const path = require('path');
 const RUNTIME_DIR = path.join(__dirname);
 const JWKS_STATE_FILE = path.join(RUNTIME_DIR, 'jwks-state.json');
 const TENANT_STATE_FILE = path.join(RUNTIME_DIR, 'tenant-state.json');
+const SAML_STATE_FILE = path.join(RUNTIME_DIR, 'saml-state.json');
+const SCIM_STATE_FILE = path.join(RUNTIME_DIR, 'scim-state.json');
 const HEALTH_FILE = path.join(RUNTIME_DIR, 'component-health.json');
 const LOGS_FILE = path.join(RUNTIME_DIR, 'logs.ndjson');
 const SCENARIO_FILE = path.join(RUNTIME_DIR, 'scenario-mode.json');
@@ -108,6 +110,43 @@ function getTenantState() {
 
 function setTenantState(state) {
   writeJSON(TENANT_STATE_FILE, state);
+}
+
+// --- SAML State ---
+
+function getSAMLState() {
+  return readJSON(SAML_STATE_FILE, {
+    vendor_flavor: 'okta-style',
+    last_assertion_review: new Date().toISOString(),
+    assertion_audience_status: 'valid',
+    signature_valid: true,
+    attribute_mapping_complete: true,
+    mapping_failures: [],
+    last_metadata_refresh: new Date().toISOString()
+  });
+}
+
+function setSAMLState(state) {
+  writeJSON(SAML_STATE_FILE, state);
+}
+
+// --- SCIM State ---
+
+function getSCIMState() {
+  return readJSON(SCIM_STATE_FILE, {
+    vendor_flavor: 'okta-style',
+    last_provisioning_sync: new Date().toISOString(),
+    provision_status: 'healthy',
+    deprovision_status: 'healthy',
+    group_sync_status: 'healthy',
+    role_sync_status: 'healthy',
+    provisioning_drift: [],
+    last_sync_errors: []
+  });
+}
+
+function setSCIMState(state) {
+  writeJSON(SCIM_STATE_FILE, state);
 }
 
 // --- Component Health ---
@@ -215,13 +254,36 @@ function resetRuntime() {
     ]
   });
   
-  // Reset tenant state
+// Reset tenant state
   writeJSON(TENANT_STATE_FILE, {
     tenants: [],
     exposed_keys: [],
     cross_tenant_violations: []
   });
-  
+
+  // Reset SAML state
+  writeJSON(SAML_STATE_FILE, {
+    vendor_flavor: 'okta-style',
+    last_assertion_review: new Date().toISOString(),
+    assertion_audience_status: 'valid',
+    signature_valid: true,
+    attribute_mapping_complete: true,
+    mapping_failures: [],
+    last_metadata_refresh: new Date().toISOString()
+  });
+
+  // Reset SCIM state
+  writeJSON(SCIM_STATE_FILE, {
+    vendor_flavor: 'okta-style',
+    last_provisioning_sync: new Date().toISOString(),
+    provision_status: 'healthy',
+    deprovision_status: 'healthy',
+    group_sync_status: 'healthy',
+    role_sync_status: 'healthy',
+    provisioning_drift: [],
+    last_sync_errors: []
+  });
+
   // Reset component health
   writeJSON(HEALTH_FILE, {
     api: 'operational',
@@ -262,16 +324,43 @@ function ensureRuntimeFiles() {
     });
   }
   
-  // Tenant state
-  if (!fs.existsSync(TENANT_STATE_FILE)) {
-    writeJSON(TENANT_STATE_FILE, {
-      tenants: [],
-      exposed_keys: [],
-      cross_tenant_violations: []
-    });
-  }
-  
-  // Component health
+// Tenant state
+if (!fs.existsSync(TENANT_STATE_FILE)) {
+  writeJSON(TENANT_STATE_FILE, {
+    tenants: [],
+    exposed_keys: [],
+    cross_tenant_violations: []
+  });
+}
+
+// SAML state
+if (!fs.existsSync(SAML_STATE_FILE)) {
+  writeJSON(SAML_STATE_FILE, {
+    vendor_flavor: 'okta-style',
+    last_assertion_review: new Date().toISOString(),
+    assertion_audience_status: 'valid',
+    signature_valid: true,
+    attribute_mapping_complete: true,
+    mapping_failures: [],
+    last_metadata_refresh: new Date().toISOString()
+  });
+}
+
+// SCIM state
+if (!fs.existsSync(SCIM_STATE_FILE)) {
+  writeJSON(SCIM_STATE_FILE, {
+    vendor_flavor: 'okta-style',
+    last_provisioning_sync: new Date().toISOString(),
+    provision_status: 'healthy',
+    deprovision_status: 'healthy',
+    group_sync_status: 'healthy',
+    role_sync_status: 'healthy',
+    provisioning_drift: [],
+    last_sync_errors: []
+  });
+}
+
+// Component health
   if (!fs.existsSync(HEALTH_FILE)) {
     writeJSON(HEALTH_FILE, {
       api: 'operational',
@@ -312,11 +401,19 @@ module.exports = {
   setJWKSState,
   rotateJWKSKey,
   
-  // Tenant State
-  getTenantState,
-  setTenantState,
-  
-  // Component Health
+// Tenant State
+getTenantState,
+setTenantState,
+
+// SAML State
+getSAMLState,
+setSAMLState,
+
+// SCIM State
+getSCIMState,
+setSCIMState,
+
+// Component Health
   getComponentHealth,
   updateComponentHealth,
   

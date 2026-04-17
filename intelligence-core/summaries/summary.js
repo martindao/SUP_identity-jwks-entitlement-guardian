@@ -51,23 +51,29 @@ function generateSummary(incident, evidence, timeline) {
 
 function generateWhatHappened(incident, evidence) {
   const scenarios = {
-    'jwks-rotation-failure': 
-      `A signing key was rotated on the JWKS server. Validators with stale JWKS cache rejected new tokens, causing authentication failures across ${evidence.affected_tenants.length} tenants.`,
-    
-    'rls-bypass': 
-      `A service role key was exposed in the frontend bundle. This bypassed RLS, allowing cross-tenant data access. ${evidence.cross_tenant_violations.length} cross-tenant queries were detected.`,
-    
-    'cross-tenant-exposure': 
-      `A query missing tenant_id filter returned data across tenant boundaries. ${evidence.affected_tenants.length} tenants were affected by this data exposure.`
+    'jwks-rotation-failure':
+    `A signing key was rotated on the JWKS server. Validators with stale JWKS cache rejected new tokens, causing authentication failures across ${evidence.affected_tenants.length} tenants.`,
+
+    'rls-bypass':
+    `A service role key was exposed in the frontend bundle. This bypassed RLS, allowing cross-tenant data access. ${evidence.cross_tenant_violations.length} cross-tenant queries were detected.`,
+
+    'cross-tenant-exposure':
+    `A query missing tenant_id filter returned data across tenant boundaries. ${evidence.affected_tenants.length} tenants were affected by this data exposure.`,
+
+    'saml-config-drift':
+    `SAML configuration drift detected for ${evidence.vendor_flavor || 'enterprise identity'} provider. Assertion validation failed with ${evidence.saml_state?.mapping_failures?.length || 0} attribute mapping failures. ${evidence.affected_tenants.length} tenants affected.`,
+
+    'scim-provisioning-drift':
+    `SCIM provisioning drift detected for ${evidence.vendor_flavor || 'enterprise identity'} provider. ${evidence.scim_state?.provisioning_drift?.length || 0} users with group/role sync mismatches. Group sync status: ${evidence.scim_state?.group_sync_status || 'unknown'}.`
   };
-  
-  return scenarios[incident.scenario_id] || 
-    `Multiple failures were detected across ${incident.affected_components.join(', ')}. Affected ${evidence.affected_tenants.length} tenants.`;
+
+  return scenarios[incident.scenario_id] ||
+  `Multiple failures were detected across ${incident.affected_components.join(', ')}. Affected ${evidence.affected_tenants.length} tenants.`;
 }
 
 function generateEvidenceLines(incident, evidence) {
   const lines = [];
-  
+
   if (incident.scenario_id === 'jwks-rotation-failure') {
     lines.push(`- Current key ID: ${evidence.jwks_state.current_kid}`);
     lines.push(`- Previous key ID: ${evidence.jwks_state.previous_kid || 'N/A'}`);
@@ -75,21 +81,40 @@ function generateEvidenceLines(incident, evidence) {
     lines.push(`- Auth failure rate: ${evidence.auth_failure_metrics.failure_rate_pct}%`);
     lines.push(`- Affected tenants: ${evidence.affected_tenants.length}`);
   }
-  
+
   if (incident.scenario_id === 'rls-bypass') {
     lines.push(`- Exposed key type: ${evidence.exposed_keys[0]?.key_type || 'service_role'}`);
     lines.push(`- Exposed location: ${evidence.exposed_keys[0]?.exposed_in || 'unknown'}`);
     lines.push(`- Cross-tenant queries: ${evidence.cross_tenant_violations.length}`);
     lines.push(`- Affected victim tenants: ${evidence.affected_tenants.length}`);
   }
-  
+
   if (incident.scenario_id === 'cross-tenant-exposure') {
     lines.push(`- Vulnerable query: ${evidence.cross_tenant_violations[0]?.query || 'unknown'}`);
     lines.push(`- Missing filter: tenant_id`);
     lines.push(`- Affected request count: ${evidence.auth_failure_metrics.failures_last_minute}`);
     lines.push(`- Data leaked between tenants: ${evidence.cross_tenant_violations.length} instances`);
   }
-  
+
+  if (incident.scenario_id === 'saml-config-drift') {
+    lines.push(`- Vendor flavor: ${evidence.vendor_flavor || 'unknown'}`);
+    lines.push(`- Assertion audience status: ${evidence.saml_state?.assertion_audience_status || 'unknown'}`);
+    lines.push(`- Signature valid: ${evidence.saml_state?.signature_valid ?? 'unknown'}`);
+    lines.push(`- Attribute mapping complete: ${evidence.saml_state?.attribute_mapping_complete ?? 'unknown'}`);
+    lines.push(`- Mapping failures: ${evidence.saml_state?.mapping_failures?.length || 0}`);
+    lines.push(`- Affected tenants: ${evidence.affected_tenants.length}`);
+  }
+
+  if (incident.scenario_id === 'scim-provisioning-drift') {
+    lines.push(`- Vendor flavor: ${evidence.vendor_flavor || 'unknown'}`);
+    lines.push(`- Provision status: ${evidence.scim_state?.provision_status || 'unknown'}`);
+    lines.push(`- Group sync status: ${evidence.scim_state?.group_sync_status || 'unknown'}`);
+    lines.push(`- Role sync status: ${evidence.scim_state?.role_sync_status || 'unknown'}`);
+    lines.push(`- Provisioning drift count: ${evidence.scim_state?.provisioning_drift?.length || 0}`);
+    lines.push(`- Last sync errors: ${evidence.scim_state?.last_sync_errors?.length || 0}`);
+    lines.push(`- Affected tenants: ${evidence.affected_tenants.length}`);
+  }
+
   return lines;
 }
 

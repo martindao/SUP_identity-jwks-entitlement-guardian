@@ -22,7 +22,7 @@ This should start:
 npm test
 ```
 
-Target: 12+ unit tests passing.
+Target: 23+ unit tests passing.
 
 Tests should cover:
 - Correlation logic
@@ -32,6 +32,10 @@ Tests should cover:
 - Summary generation
 - JWKS state functions
 - Tenant state functions
+- SAML state functions
+- SCIM state functions
+- SAML scenario injection
+- SCIM scenario injection
 - Auditor logic (mock data)
 
 ## 3. Integration Tests
@@ -43,8 +47,12 @@ npm run test:integration
 Target: 16+ integration tests passing.
 
 Tests should cover:
-- All 3 scenarios end-to-end
-- All 3 audits end-to-end
+- All 3 JWKS scenarios end-to-end
+- All 3 JWKS audits end-to-end
+- SAML scenario end-to-end
+- SCIM scenario end-to-end
+- SAML audit end-to-end
+- SCIM audit end-to-end
 - Reset → Simulate flow
 - JWT signing and verification with `jose`
 - Tenant isolation enforcement
@@ -99,13 +107,56 @@ Open `http://localhost:3003`
 2. Run JWKS Rotation Failure simulation
 3. Click `Run JWKS Audit`
 4. Confirm audit modal shows:
-   - Pass/fail per check
-   - Failed check: "validators_using_current_kid"
-   - Stale validator count
+- Pass/fail per check
+- Failed check: "validators_using_current_kid"
+- Stale validator count
 5. Click `Run Tenant Audit`
 6. Confirm audit results shown
 7. Click `Run Entitlement Audit`
 8. Confirm audit results shown
+
+### Scenario E — SAML Configuration Drift
+
+1. Click `Reset Console`
+2. Click `SAML Config Drift` button
+3. Confirm incident appears with:
+- Protocol badge: "SAML"
+- Vendor badge: "okta-style"
+4. Select the incident
+5. Confirm evidence shows:
+- Audience status: invalid
+- Signature valid: false
+- Attribute mapping: incomplete
+- Mapping failures count
+- Affected tenants
+6. Click `Run SAML Audit`
+7. Confirm audit shows:
+- Metadata freshness check
+- Signature trust validation
+- Audience validation
+- Attribute mapping completeness
+
+### Scenario F — SCIM Provisioning Drift
+
+1. Click `Reset Console`
+2. Click `SCIM Provisioning Drift` button
+3. Confirm incident appears with:
+- Protocol badge: "SCIM"
+- Vendor badge: "okta-style"
+4. Select the incident
+5. Confirm evidence shows:
+- Provision status: failed
+- Deprovision status: degraded
+- Group sync status: mismatch
+- Role sync status: mismatch
+- Provisioning drift entries
+- Sync errors
+6. Click `Run SCIM Audit`
+7. Confirm audit shows:
+- Provisioning status check
+- Deprovision handling check
+- Group sync drift detection
+- Role sync drift detection
 
 ## 5. Critical Bug Check
 
@@ -193,4 +244,42 @@ Open each runbook and verify:
 - JWKS rotation runbook has cache refresh steps
 - RLS bypass runbook has security escalation section
 - Cross-tenant runbook has compliance notification section
+- SAML config drift runbook has audience/signature/attribute mapping sections
+- SCIM provisioning drift runbook has provision/deprovision/group sync sections
 - All runbooks have clear action steps
+
+## 13. Enterprise Identity Verification
+
+### SAML State Verification
+
+```bash
+npm run scenario:saml
+npm run audit:saml
+```
+
+Confirm:
+- SAML state has `vendor_flavor: 'okta-style'`
+- SAML state has all required fields (assertion_audience_status, signature_valid, etc.)
+- SAML audit generates report in `artifacts/audits/`
+- SAML incident has protocol and vendor_flavor metadata
+
+### SCIM State Verification
+
+```bash
+npm run scenario:scim
+npm run audit:scim
+```
+
+Confirm:
+- SCIM state has `vendor_flavor: 'okta-style'`
+- SCIM state has all required fields (provision_status, deprovision_status, etc.)
+- SCIM audit generates report in `artifacts/audits/`
+- SCIM incident has protocol and vendor_flavor metadata
+
+### Vendor Flavor Check
+
+Verify that:
+- SAML and SCIM incidents show `vendor_flavor: 'okta-style'`
+- JWKS incidents show `vendor_flavor: null`
+- No multi-vendor references (Entra, Azure AD forbidden)
+- All demo artifacts have explicit DEMO/MOCK disclaimer

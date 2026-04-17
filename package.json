@@ -14,6 +14,10 @@
     "scenario:jwks-rotation": "node scenarios/jwks-rotation-failure/inject.js",
     "scenario:rls-bypass": "node scenarios/rls-bypass/inject.js",
     "scenario:cross-tenant": "node scenarios/cross-tenant-exposure/inject.js",
+    "scenario:saml": "node scenarios/saml-failure/inject.js",
+    "scenario:scim": "node scenarios/scim-failure/inject.js",
+    "audit:saml": "node auditors/saml-audit.js",
+    "audit:scim": "node auditors/scim-audit.js",
     "reset": "node -e \"require('./runtime/store').resetRuntime(); console.log('Runtime cleared.')\"",
     "test": "node tests/run-tests.js",
     "test:integration": "node tests/integration.js"

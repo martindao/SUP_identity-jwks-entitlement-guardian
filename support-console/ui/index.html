@@ -168,12 +168,16 @@ text-align: left;
 <button class="btn btn-primary simulation-btn" onclick="simulate('jwks-rotation')">JWKS Rotation Failure</button>
 <button class="btn btn-danger simulation-btn" onclick="simulate('rls-bypass')">RLS Bypass</button>
 <button class="btn btn-danger simulation-btn" onclick="simulate('cross-tenant')">Cross-Tenant Exposure</button>
+<button class="btn btn-warning simulation-btn" data-simulate="saml" onclick="simulate('saml')">SAML Config Drift</button>
+<button class="btn btn-warning simulation-btn" data-simulate="scim" onclick="simulate('scim')">SCIM Provisioning Drift</button>
 <button class="btn btn-secondary simulation-btn" onclick="reset()">Reset Console</button>
 
 <h4 style="margin: 1.5rem 0 0.75rem; font-size: 0.875rem; color: #94a3b8;">Auditors</h4>
 <button class="btn btn-secondary btn-sm simulation-btn" onclick="runAudit('jwks')">Run JWKS Audit</button>
 <button class="btn btn-secondary btn-sm simulation-btn" onclick="runAudit('tenants')">Run Tenant Audit</button>
 <button class="btn btn-secondary btn-sm simulation-btn" onclick="runAudit('entitlements')">Run Entitlement Audit</button>
+<button class="btn btn-secondary btn-sm simulation-btn" data-audit="saml" onclick="runAudit('saml')">Audit SAML</button>
+<button class="btn btn-secondary btn-sm simulation-btn" data-audit="scim" onclick="runAudit('scim')">Audit SCIM</button>
 
 <div class="panel-header" style="margin-top: 1.5rem;">Component Health</div>
 <div class="health-grid" id="health-grid"></div>
@@ -223,16 +227,22 @@ container.innerHTML = incidents.map(inc => {
 const isSecurity = inc.compliance_impact && (inc.compliance_impact.includes('BREACH') || inc.compliance_impact.includes('BYPASS'));
 const isAuth = inc.scenario_id === 'jwks-rotation-failure';
 const cardClass = isSecurity ? 'security' : isAuth ? 'auth' : '';
+const protocol = inc.protocol || 'JWKS';
+const vendorFlavor = inc.vendor_flavor || null;
+
+let badgesHtml = `<span class="badge badge-${inc.severity.toLowerCase()}">${inc.severity}</span>
+<span class="badge badge-compliance">${inc.compliance_impact}</span>
+<span class="badge badge-protocol" data-protocol="${protocol}">${protocol}</span>`;
+if (vendorFlavor) {
+badgesHtml += `<span class="badge badge-vendor" data-vendor="${vendorFlavor}">${vendorFlavor}</span>`;
+}
+badgesHtml += `<span>${inc.affected_tenants?.length || 0} tenants</span>
+<span>${new Date(inc.opened_at).toLocaleTimeString()}</span>`;
 
 return `<div class="incident-card ${cardClass} ${inc.id === selectedIncidentId ? 'selected' : ''}"
 onclick="selectIncident('${inc.id}')">
 <div class="incident-title">${inc.title}</div>
-<div class="incident-meta">
-<span class="badge badge-${inc.severity.toLowerCase()}">${inc.severity}</span>
-<span class="badge badge-compliance">${inc.compliance_impact}</span>
-<span>${inc.affected_tenants?.length || 0} tenants</span>
-<span>${new Date(inc.opened_at).toLocaleTimeString()}</span>
-</div>
+<div class="incident-meta">${badgesHtml}</div>
 </div>`;
 }).join('');
 }
@@ -270,67 +280,114 @@ console.error('Failed to load incident details:', err);
 }
 
 function renderDetail(incident, timeline, evidence, summary) {
-const container = document.getElementById('detail-container');
+  const container = document.getElementById('detail-container');
 
-let evidenceHtml = '';
-if (evidence.jwks_state) {
-evidenceHtml += `
-<div class="detail-section">
-<h3>JWKS State</h3>
-<div class="evidence-grid">
-<div class="evidence-item"><div class="evidence-label">Current Key</div><div class="evidence-value">${evidence.jwks_state.current_kid}</div></div>
-<div class="evidence-item"><div class="evidence-label">Previous Key</div><div class="evidence-value">${evidence.jwks_state.previous_kid || 'N/A'}</div></div>
-<div class="evidence-item"><div class="evidence-label">Stale Validators</div><div class="evidence-value">${evidence.jwks_state.validators_with_stale_cache}</div></div>
-<div class="evidence-item"><div class="evidence-label">Rotation Age</div><div class="evidence-value">${evidence.jwks_state.rotation_age_seconds}s</div></div>
-</div>
-</div>`;
-}
+  // Build protocol and vendor flavor display for header
+  const protocol = incident.protocol || null;
+  const vendorFlavor = evidence.vendor_flavor || null;
+  let headerMeta = `<strong>Affected:</strong> ${incident.affected_tenants?.length || 0} tenants | <strong>Compliance:</strong> ${incident.compliance_impact}`;
+  if (protocol) {
+    headerMeta = `<strong>Protocol:</strong> ${protocol} | ` + headerMeta;
+  }
+  if (vendorFlavor) {
+    headerMeta = `<strong>Vendor:</strong> ${vendorFlavor} | ` + headerMeta;
+  }
 
-if (evidence.exposed_keys && evidence.exposed_keys.length > 0) {
-evidenceHtml += `
-<div class="detail-section">
-<h3>Exposed Keys</h3>
-${evidence.exposed_keys.map(k => `<div class="evidence-item"><div class="evidence-label">${k.key_type}</div><div class="evidence-value">${k.exposed_in}</div></div>`).join('')}
-</div>`;
-}
+  let evidenceHtml = '';
+  if (evidence.jwks_state) {
+    evidenceHtml += `
+    <div class="detail-section">
+      <h3>JWKS State</h3>
+      <div class="evidence-grid">
+        <div class="evidence-item"><div class="evidence-label">Current Key</div><div class="evidence-value">${evidence.jwks_state.current_kid}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Previous Key</div><div class="evidence-value">${evidence.jwks_state.previous_kid || 'N/A'}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Stale Validators</div><div class="evidence-value">${evidence.jwks_state.validators_with_stale_cache}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Rotation Age</div><div class="evidence-value">${evidence.jwks_state.rotation_age_seconds}s</div></div>
+      </div>
+    </div>`;
+  }
 
-if (evidence.cross_tenant_violations && evidence.cross_tenant_violations.length > 0) {
-evidenceHtml += `
-<div class="detail-section">
-<h3>Cross-Tenant Violations</h3>
-<div style="font-size: 0.875rem;">${evidence.cross_tenant_violations.length} violations detected</div>
-</div>`;
-}
+  if (evidence.saml_state) {
+    const saml = evidence.saml_state;
+    const mappingStatus = saml.attribute_mapping_complete ? 'Complete' : 'Incomplete';
+    const mappingFailuresHtml = saml.mapping_failures && saml.mapping_failures.length > 0
+      ? saml.mapping_failures.map(f => `<div class="evidence-item"><div class="evidence-label">${f.attribute}</div><div class="evidence-value" style="color: #ef4444;">${f.error}</div></div>`).join('')
+      : '';
+    evidenceHtml += `
+    <div class="detail-section" data-section="saml-evidence">
+      <h3>SAML Evidence</h3>
+      <div class="evidence-grid">
+        <div class="evidence-item"><div class="evidence-label">Audience Status</div><div class="evidence-value">${saml.assertion_audience_status || 'N/A'}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Signature Valid</div><div class="evidence-value" style="color: ${saml.signature_valid ? '#10b981' : '#ef4444'};">${saml.signature_valid ? 'Yes' : 'No'}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Attribute Mapping</div><div class="evidence-value" style="color: ${saml.attribute_mapping_complete ? '#10b981' : '#f97316'};">${mappingStatus}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Last Metadata Refresh</div><div class="evidence-value">${saml.last_metadata_refresh ? new Date(saml.last_metadata_refresh).toLocaleString() : 'N/A'}</div></div>
+      </div>
+      ${mappingFailuresHtml ? `<div style="margin-top: 0.75rem;"><div class="evidence-label" style="margin-bottom: 0.5rem;">Mapping Failures</div><div class="evidence-grid">${mappingFailuresHtml}</div></div>` : ''}
+    </div>`;
+  }
 
-container.innerHTML = `
-<div class="detail-section">
-<h3>Overview</h3>
-<div style="font-size: 0.875rem;">${incident.title}</div>
-<div style="margin-top: 0.5rem; font-size: 0.875rem; color: #94a3b8;">
-<strong>Affected:</strong> ${incident.affected_tenants?.length || 0} tenants |
-<strong>Compliance:</strong> ${incident.compliance_impact}
-</div>
-</div>
+  if (evidence.scim_state) {
+    const scim = evidence.scim_state;
+    const driftHtml = scim.provisioning_drift && scim.provisioning_drift.length > 0
+      ? scim.provisioning_drift.map(d => `<div class="evidence-item"><div class="evidence-label">${d.user}</div><div class="evidence-value" style="color: #f97316;">Expected: ${d.expected_groups?.join(', ') || 'N/A'} | Actual: ${d.actual_groups?.join(', ') || 'N/A'}</div></div>`).join('')
+      : '';
+    evidenceHtml += `
+    <div class="detail-section" data-section="scim-evidence">
+      <h3>SCIM Evidence</h3>
+      <div class="evidence-grid">
+        <div class="evidence-item"><div class="evidence-label">Provision Status</div><div class="evidence-value" style="color: ${scim.provision_status === 'healthy' ? '#10b981' : '#f97316'};">${scim.provision_status || 'N/A'}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Deprovision Status</div><div class="evidence-value" style="color: ${scim.deprovision_status === 'healthy' ? '#10b981' : '#f97316'};">${scim.deprovision_status || 'N/A'}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Group Sync Status</div><div class="evidence-value" style="color: ${scim.group_sync_status === 'healthy' ? '#10b981' : '#f97316'};">${scim.group_sync_status || 'N/A'}</div></div>
+        <div class="evidence-item"><div class="evidence-label">Role Sync Status</div><div class="evidence-value" style="color: ${scim.role_sync_status === 'healthy' ? '#10b981' : '#f97316'};">${scim.role_sync_status || 'N/A'}</div></div>
+      </div>
+      ${driftHtml ? `<div style="margin-top: 0.75rem;"><div class="evidence-label" style="margin-bottom: 0.5rem;">Provisioning Drift</div><div class="evidence-grid">${driftHtml}</div></div>` : ''}
+    </div>`;
+  }
 
-${evidenceHtml}
+  if (evidence.exposed_keys && evidence.exposed_keys.length > 0) {
+    evidenceHtml += `
+    <div class="detail-section">
+      <h3>Exposed Keys</h3>
+      ${evidence.exposed_keys.map(k => `<div class="evidence-item"><div class="evidence-label">${k.key_type}</div><div class="evidence-value">${k.exposed_in}</div></div>`).join('')}
+    </div>`;
+  }
 
-<div class="detail-section">
-<h3>Timeline</h3>
-${timeline.slice(0, 5).map(t => `<div class="timeline-item">
-<strong>${new Date(t.timestamp).toLocaleTimeString()}</strong> - ${t.message}
-</div>`).join('')}
-</div>
+  if (evidence.cross_tenant_violations && evidence.cross_tenant_violations.length > 0) {
+    evidenceHtml += `
+    <div class="detail-section">
+      <h3>Cross-Tenant Violations</h3>
+      <div style="font-size: 0.875rem;">${evidence.cross_tenant_violations.length} violations detected</div>
+    </div>`;
+  }
 
-<div class="detail-section">
-<h3>Recommended Action</h3>
-<div style="font-size: 0.875rem;">${evidence.recommended_action}</div>
-</div>
+  container.innerHTML = `
+    <div class="detail-section">
+      <h3>Overview</h3>
+      <div style="font-size: 0.875rem;">${incident.title}</div>
+      <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #94a3b8;">
+        ${headerMeta}
+      </div>
+    </div>
 
-<div class="detail-section">
-<h3>Runbook</h3>
-<a href="${incident.runbook_ref}" style="color: #3b82f6; font-size: 0.875rem;">${incident.runbook_ref}</a>
-</div>
-`;
+    ${evidenceHtml}
+
+    <div class="detail-section">
+      <h3>Timeline</h3>
+      ${timeline.slice(0, 5).map(t => `<div class="timeline-item">
+        <strong>${new Date(t.timestamp).toLocaleTimeString()}</strong> - ${t.message}
+      </div>`).join('')}
+    </div>
+
+    <div class="detail-section">
+      <h3>Recommended Action</h3>
+      <div style="font-size: 0.875rem;">${evidence.recommended_action}</div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Runbook</h3>
+      <a href="${incident.runbook_ref}" style="color: #3b82f6; font-size: 0.875rem;">${incident.runbook_ref}</a>
+    </div>
+  `;
 }
 
 async function simulate(type) {

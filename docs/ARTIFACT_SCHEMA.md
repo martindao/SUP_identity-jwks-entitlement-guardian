@@ -82,6 +82,9 @@ Identity-specific evidence snapshot. This is the most important artifact for rev
 - `scenario_id`
 - `component_health`
 - `jwks_state`
+- `saml_state` — Enterprise identity SAML evidence block
+- `scim_state` — Enterprise identity SCIM evidence block
+- `vendor_flavor` — Vendor identifier for enterprise identity incidents (e.g., `okta-style`)
 - `auth_failure_metrics`
 - `affected_tenants`
 - `exposed_keys`
@@ -114,6 +117,26 @@ Identity-specific evidence snapshot. This is the most important artifact for rev
       { "kid": "key_2026_001", "status": "rotating", "created_at": "2026-03-01T00:00:00.000Z" }
     ]
   },
+  "saml_state": {
+    "vendor_flavor": "okta-style",
+    "last_assertion_review": "2026-04-06T07:30:00.000Z",
+    "assertion_audience_status": "valid",
+    "signature_valid": true,
+    "attribute_mapping_complete": true,
+    "mapping_failures": [],
+    "last_metadata_refresh": "2026-04-06T07:00:00.000Z"
+  },
+  "scim_state": {
+    "vendor_flavor": "okta-style",
+    "last_provisioning_sync": "2026-04-06T07:45:00.000Z",
+    "provision_status": "healthy",
+    "deprovision_status": "healthy",
+    "group_sync_status": "healthy",
+    "role_sync_status": "healthy",
+    "provisioning_drift": [],
+    "last_sync_errors": []
+  },
+  "vendor_flavor": null,
   "auth_failure_metrics": {
     "failures_last_minute": 23,
     "unique_tenants_affected": 7,
@@ -164,6 +187,52 @@ Identity-specific evidence snapshot. This is the most important artifact for rev
   ],
   "compliance_impact": "GDPR_ARTICLE_32_BREACH",
   "recommended_action": "1. Disable endpoint immediately. 2. Audit access logs. 3. Notify legal/compliance team. 4. Patch query with tenant filter."
+}
+```
+
+**For SAML Config Drift scenario:**
+```json
+{
+  "saml_state": {
+    "vendor_flavor": "okta-style",
+    "last_assertion_review": "2026-04-16T19:00:00.000Z",
+    "assertion_audience_status": "invalid",
+    "signature_valid": false,
+    "attribute_mapping_complete": false,
+    "mapping_failures": [
+      { "attribute": "okta.userName", "error": "not found in assertion" },
+      { "attribute": "okta.groups", "error": "empty value" }
+    ],
+    "last_metadata_refresh": "2026-04-16T18:00:00.000Z"
+  },
+  "vendor_flavor": "okta-style",
+  "compliance_impact": "AUTH_CONFIG_DRIFT",
+  "recommended_action": "1. Verify SAML metadata matches IdP configuration. 2. Check attribute mappings for okta.userName and okta.groups. 3. Refresh SAML metadata from IdP."
+}
+```
+
+**For SCIM Provisioning Drift scenario:**
+```json
+{
+  "scim_state": {
+    "vendor_flavor": "okta-style",
+    "last_provisioning_sync": "2026-04-16T19:00:00.000Z",
+    "provision_status": "degraded",
+    "deprovision_status": "healthy",
+    "group_sync_status": "failed",
+    "role_sync_status": "degraded",
+    "provisioning_drift": [
+      { "user": "john.doe@example.com", "expected_groups": ["Okta-Users", "Okta-Admins"], "actual_groups": ["Okta-Users"] },
+      { "user": "jane.smith@example.com", "expected_groups": ["Okta-Users"], "actual_groups": [] }
+    ],
+    "last_sync_errors": [
+      { "timestamp": "2026-04-16T18:55:00.000Z", "error": "Group Okta-Admins not found in target" },
+      { "timestamp": "2026-04-16T18:50:00.000Z", "error": "Role mapping timeout" }
+    ]
+  },
+  "vendor_flavor": "okta-style",
+  "compliance_impact": "PROVISIONING_DRIFT",
+  "recommended_action": "1. Verify SCIM connector health. 2. Check Okta-Admins and Okta-Users group sync status. 3. Review provisioning drift for affected users. 4. Force full sync if drift exceeds threshold."
 }
 ```
 

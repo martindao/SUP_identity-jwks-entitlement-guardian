@@ -8,6 +8,8 @@ Identity systems are deceptively complex. Tokens, keys, caches, tenants, roles �
 
 This repo demonstrates a support-first approach to identity incident management, reducing time-to-diagnosis for auth failures, tenant isolation breaches, and entitlement drift.
 
+**Note:** This proof now includes enterprise identity support for SAML authentication troubleshooting and SCIM provisioning/deprovisioning workflows, using an Okta-style vendor flavor. This is a demo/mock implementation for support scenario training, not a real production integration.
+
 ## The Startup Pain This Solves
 
 - **JWKS rotation failures locking out customers** — Stale cache validation, cascading auth failures
@@ -95,14 +97,32 @@ A new feature introduces a query that doesn't include `tenant_id` filter. Tenant
 
 **Expected:** P1 compliance incident with vulnerable query name, missing filter, 8 affected requests, compliance impact = GDPR_ARTICLE_32_BREACH
 
+### 4. SAML Configuration Drift
+
+SAML authentication fails due to configuration drift between the Identity Provider (Okta-style) and the Service Provider. Multiple failure modes may occur: audience mismatch, stale certificate/signature validation, and attribute mapping failures.
+
+**Run:** Click "SAML Config Drift" in UI or `npm run scenario:saml`
+
+**Expected:** P1 incident with auth=degraded, SAML state showing audience status, signature validity, attribute mapping status, and Okta-style vendor flavor indicator
+
+### 5. SCIM Provisioning Drift
+
+SCIM sync between the identity provider and downstream application has drifted. Users may be missing expected permissions, have unauthorized access, or fail to provision/deprovision correctly.
+
+**Run:** Click "SCIM Provisioning Drift" in UI or `npm run scenario:scim`
+
+**Expected:** P1 incident with provision_status=drift, SCIM state showing provisioning/deprovisioning health, group sync status, and affected users with group membership drift
+
 ## Auditor Tools
 
 Proactive audit scripts that can run independently or via the UI:
 
 ```bash
-npm run audit:jwks         # Check JWKS rotation health
-npm run audit:tenants      # Check tenant isolation
+npm run audit:jwks       # Check JWKS rotation health
+npm run audit:tenants    # Check tenant isolation
 npm run audit:entitlements # Check permission consistency
+npm run audit:saml       # Check SAML configuration health
+npm run audit:scim       # Check SCIM provisioning health
 ```
 
 Each auditor generates a dated report in `artifacts/audits/` with pass/fail checks and specific details.
@@ -134,8 +154,8 @@ open http://localhost:3003
 2. **API server** starts on port 3001, validates JWTs
 3. **Intelligence core** polls for events every 1 second
 4. **Support console** shows empty state initially
-5. Click a **simulation button** → incident appears in queue
-6. **Click incident card** → see identity-specific evidence in detail pane
+5. Click a **simulation button** (JWKS, RLS, Cross-Tenant, SAML, or SCIM) to trigger an incident
+6. **Click incident card** to see identity-specific evidence in detail pane
 
 ### Reset Between Demos
 
@@ -146,7 +166,7 @@ npm run reset
 ## How to Test
 
 ```bash
-# Unit tests (12+ tests)
+# Unit tests (23+ tests)
 npm test
 
 # Integration tests (16+ tests)
@@ -157,9 +177,9 @@ Tests cover:
 - Correlation and promotion logic
 - Evidence capture with identity-specific fields
 - Timeline and summary generation
-- Runtime store (JWKS state, tenant state)
-- All 3 scenarios end-to-end
-- All 3 auditors
+- Runtime store (JWKS state, tenant state, SAML state, SCIM state)
+- All 5 scenarios end-to-end
+- All 5 auditors
 - Reset→Simulate flow
 
 ## Artifact Outputs
@@ -193,6 +213,10 @@ By structuring noisy auth failures into one actionable incident object with iden
 - **Reduce toil** — Proactive auditing instead of reactive firefighting
 
 The patterns demonstrated here — event-to-incident separation, identity-aware correlation, evidence snapshotting, and compliance-focused runbooks — are directly applicable to any SaaS dealing with auth failures and tenant isolation.
+
+## Disclaimer
+
+This is a **demo/mock proof** for support scenario training. The SAML and SCIM features simulate Okta-style enterprise identity workflows but do not integrate with real Okta or any other identity provider. This is not a production-ready integration.
 
 ## License
 

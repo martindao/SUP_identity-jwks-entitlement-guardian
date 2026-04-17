@@ -1,0 +1,75 @@
+{
+  "_comment": "DEMO/MOCK PROOF - Not a real production SCIM payload. This is a simulated artifact for support documentation and portfolio demonstration.",
+  "_simulation_metadata": {
+    "generated_for": "SCIM provisioning support workflow documentation",
+    "audit_friendly": true,
+    "vendor_flavor": "okta-style",
+    "created_at": "2026-04-16T00:00:00.000Z"
+  },
+  "schemas": [
+    "urn:ietf:params:scim:schemas:core:2.0:User"
+  ],
+  "id": "user_001_abc123def456",
+  "externalId": "okta-user-001-abc123",
+  "userName": "john.smith@example.com",
+  "name": {
+    "givenName": "John",
+    "familyName": "Smith",
+    "formatted": "John Smith"
+  },
+  "displayName": "John Smith",
+  "emails": [
+    {
+      "value": "john.smith@example.com",
+      "type": "work",
+      "primary": true
+    },
+    {
+      "value": "jsmith@example.org",
+      "type": "work",
+      "primary": false
+    }
+  ],
+  "active": true,
+  "title": "Senior Sales Engineer",
+  "department": "Sales",
+  "groups": [
+    {
+      "value": "grp_001_okta_users",
+      "display": "Okta-Users",
+      "type": "direct"
+    },
+    {
+      "value": "grp_002_okta_sales",
+      "display": "Okta-Sales",
+      "type": "direct"
+    },
+    {
+      "value": "grp_003_okta_admins",
+      "display": "Okta-Admins",
+      "type": "direct"
+    }
+  ],
+  "roles": [
+    {
+      "value": "role_sales_engineer",
+      "display": "Sales Engineer",
+      "type": "app_role"
+    }
+  ],
+  "meta": {
+    "resourceType": "User",
+    "created": "2026-01-15T09:30:00.000Z",
+    "lastModified": "2026-04-10T14:22:00.000Z",
+    "location": "https://api.example.com/scim/v2/Users/user_001_abc123def456",
+    "version": "W/\"v2.1\""
+  },
+  "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+    "employeeNumber": "EMP-2026-0042",
+    "manager": {
+      "value": "user_mgr_001",
+      "display": "Jane Doe"
+    },
+    "department": "Sales"
+  }
+}

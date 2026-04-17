@@ -23,13 +23,17 @@ function promoteIncident(bucket) {
   
   // Determine scenario type
   const scenarioId = detectScenario(events);
-  
+
   // Determine compliance impact
   const complianceImpact = determineComplianceImpact(events, scenarioId);
-  
+
+  // Determine protocol and vendor flavor
+  const protocol = determineProtocol(scenarioId);
+  const vendorFlavor = determineVendorFlavor(scenarioId);
+
   // Generate title
   const title = generateTitle(events, scenarioId);
-  
+
   const incident = {
     id: incidentId,
     status: 'open',
@@ -43,6 +47,8 @@ function promoteIncident(bucket) {
     affected_tenants: affectedTenants,
     compliance_impact: complianceImpact,
     scenario_id: scenarioId,
+    protocol: protocol,
+    vendor_flavor: vendorFlavor,
     timeline_ref: `artifacts/incidents/${incidentId}/timeline.json`,
     evidence_ref: `artifacts/incidents/${incidentId}/evidence-bundle.json`,
     summary_ref: `artifacts/incidents/${incidentId}/summary.md`,
@@ -100,19 +106,31 @@ function calculateProbableOrigin(events, bucket) {
 
 function detectScenario(events) {
   const messages = events.map(e => e.message || '').join(' ').toLowerCase();
-  
+
+  // SAML detection - check for SAML-specific keywords
+  if (messages.includes('saml') || messages.includes('assertion') || messages.includes('sso') ||
+      messages.includes('attribute mapping') || messages.includes('audience') && messages.includes('saml')) {
+    return 'saml-config-drift';
+  }
+
+  // SCIM detection - check for SCIM/provisioning keywords
+  if (messages.includes('scim') || messages.includes('provisioning') || messages.includes('deprovision') ||
+      messages.includes('group sync') || messages.includes('role sync') || messages.includes('user sync')) {
+    return 'scim-provisioning-drift';
+  }
+
   if (messages.includes('jwks') || messages.includes('key') && messages.includes('rotation')) {
     return 'jwks-rotation-failure';
   }
-  
+
   if (messages.includes('exposed') || messages.includes('service_role') || messages.includes('rls bypass')) {
     return 'rls-bypass';
   }
-  
+
   if (messages.includes('cross-tenant') || messages.includes('tenant filter') || messages.includes('isolation violation')) {
     return 'cross-tenant-exposure';
   }
-  
+
   return 'unknown';
 }
 
@@ -120,6 +138,8 @@ function determineComplianceImpact(events, scenarioId) {
   if (scenarioId === 'rls-bypass') return 'DATA_BREACH_POTENTIAL';
   if (scenarioId === 'cross-tenant-exposure') return 'GDPR_ARTICLE_32_BREACH';
   if (scenarioId === 'jwks-rotation-failure') return 'AUTH_OUTAGE';
+  if (scenarioId === 'saml-config-drift') return 'AUTH_CONFIG_DRIFT';
+  if (scenarioId === 'scim-provisioning-drift') return 'PROVISIONING_DRIFT';
   return 'OPERATIONAL_IMPACT';
 }
 
@@ -127,15 +147,23 @@ function generateTitle(events, scenarioId) {
   if (scenarioId === 'jwks-rotation-failure') {
     return 'JWKS rotation mismatch — token validation failing across tenants';
   }
-  
+
   if (scenarioId === 'rls-bypass') {
     return 'Service role key exposed in frontend — RLS bypassed across tenants';
   }
-  
+
   if (scenarioId === 'cross-tenant-exposure') {
     return 'Cross-tenant data exposure in endpoint';
   }
-  
+
+  if (scenarioId === 'saml-config-drift') {
+    return 'SAML configuration drift — authentication failing for Okta-style SSO';
+  }
+
+  if (scenarioId === 'scim-provisioning-drift') {
+    return 'SCIM provisioning drift — user/group sync failing for Okta-style integration';
+  }
+
   // Generic title
   const services = [...new Set(events.map(e => e.service))].join(', ');
   return `Multiple failures detected in ${services}`;
@@ -146,10 +174,29 @@ function getRunbookForScenario(scenarioId) {
     'jwks-rotation-failure': 'runbooks/jwks-rotation-failure.md',
     'rls-bypass': 'runbooks/rls-bypass.md',
     'cross-tenant-exposure': 'runbooks/cross-tenant-exposure.md',
+    'saml-config-drift': 'runbooks/saml-config-drift.md',
+    'scim-provisioning-drift': 'runbooks/scim-provisioning-drift.md',
     'unknown': 'runbooks/general-auth-triage.md'
   };
-  
+
   return runbooks[scenarioId] || runbooks['unknown'];
+}
+
+function determineProtocol(scenarioId) {
+  if (scenarioId === 'jwks-rotation-failure') return 'JWKS';
+  if (scenarioId === 'saml-config-drift') return 'SAML';
+  if (scenarioId === 'scim-provisioning-drift') return 'SCIM';
+  // RLS bypass and cross-tenant exposure are JWKS-related auth failures
+  if (scenarioId === 'rls-bypass' || scenarioId === 'cross-tenant-exposure') return 'JWKS';
+  return null;
+}
+
+function determineVendorFlavor(scenarioId) {
+  // SAML and SCIM incidents use okta-style vendor flavor
+  if (scenarioId === 'saml-config-drift' || scenarioId === 'scim-provisioning-drift') {
+    return 'okta-style';
+  }
+  return null;
 }
 
 module.exports = { promoteIncident };

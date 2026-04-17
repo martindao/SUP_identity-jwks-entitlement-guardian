@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  DEMO/MOCK PROOF - Not a real production assertion
+  
+  This is a simulated SAML assertion artifact for support demonstration purposes.
+  DO NOT use this for production authentication or security testing.
+  This file is part of the Identity Guardian support training materials.
+-->
+<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+                ID="_abc123demo456"
+                Version="2.0"
+                IssueInstant="2024-01-15T10:30:00Z"
+                Destination="https://demo-app.example.com/saml/acs">
+   
+   <saml:Issuer xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
+     https://example.okta.com/saml2/idp/abc123
+   </saml:Issuer>
+   
+   <samlp:Status>
+     <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
+   </samlp:Status>
+   
+   <saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+                   ID="_xyz789demo012"
+                   IssueInstant="2024-01-15T10:30:00Z"
+                   Version="2.0">
+      
+      <saml:Issuer>https://example.okta.com/saml2/idp/abc123</saml:Issuer>
+      
+      <!-- DEMO: Signature is simulated, not cryptographically valid -->
+      <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+         <ds:SignedInfo>
+            <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+            <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+            <ds:Reference URI="#_xyz789demo012">
+               <ds:Transforms>
+                  <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                  <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+               </ds:Transforms>
+               <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+               <ds:DigestValue>DEMO_DIGEST_VALUE_NOT_REAL</ds:DigestValue>
+            </ds:Reference>
+         </ds:SignedInfo>
+         <ds:SignatureValue>DEMO_SIGNATURE_VALUE_NOT_REAL_BASE64_ENCODED</ds:SignatureValue>
+         <ds:KeyInfo>
+            <ds:X509Data>
+               <ds:X509Certificate>
+                 DEMO_CERTIFICATE_CONTENT_NOT_REAL
+                 THIS_IS_A_MOCK_ARTIFACT_FOR_TRAINING
+               </ds:X509Certificate>
+            </ds:X509Data>
+         </ds:KeyInfo>
+      </ds:Signature>
+      
+      <saml:Subject>
+         <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">
+            john.doe@example.com
+         </saml:NameID>
+         <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+            <saml:SubjectConfirmationData NotOnOrAfter="2024-01-15T10:35:00Z"
+                                          Recipient="https://demo-app.example.com/saml/acs"/>
+         </saml:SubjectConfirmation>
+      </saml:Subject>
+      
+      <saml:Conditions NotBefore="2024-01-15T10:30:00Z"
+                        NotOnOrAfter="2024-01-15T10:35:00Z">
+         <!-- Audience: This is what causes "Audience mismatch" failures -->
+         <saml:AudienceRestriction>
+            <saml:Audience>https://demo-app.example.com</saml:Audience>
+         </saml:AudienceRestriction>
+      </saml:Conditions>
+      
+      <!-- Okta-style attribute names for attribute mapping demonstration -->
+      <saml:AttributeStatement>
+         <saml:Attribute Name="okta.userName"
+                         NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
+            <saml:AttributeValue>john.doe@example.com</saml:AttributeValue>
+         </saml:Attribute>
+         
+         <saml:Attribute Name="okta.firstName"
+                         NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
+            <saml:AttributeValue>John</saml:AttributeValue>
+         </saml:Attribute>
+         
+         <saml:Attribute Name="okta.lastName"
+                         NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
+            <saml:AttributeValue>Doe</saml:AttributeValue>
+         </saml:Attribute>
+         
+         <saml:Attribute Name="okta.email"
+                         NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
+            <saml:AttributeValue>john.doe@example.com</saml:AttributeValue>
+         </saml:Attribute>
+         
+         <!-- Groups: Used for role-based authorization -->
+         <saml:Attribute Name="okta.groups"
+                         NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
+            <saml:AttributeValue>Admins</saml:AttributeValue>
+            <saml:AttributeValue>Developers</saml:AttributeValue>
+            <saml:AttributeValue>SSO_Users</saml:AttributeValue>
+         </saml:Attribute>
+         
+         <!-- Department: Example of custom attribute -->
+         <saml:Attribute Name="okta.department"
+                         NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
+            <saml:AttributeValue>Engineering</saml:AttributeValue>
+         </saml:Attribute>
+      </saml:AttributeStatement>
+      
+      <saml:AuthnStatement AuthnInstant="2024-01-15T10:30:00Z"
+                           SessionIndex="_session123demo">
+         <saml:AuthnContext>
+            <saml:AuthnContextClassRef>
+               urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport
+            </saml:AuthnContextClassRef>
+         </saml:AuthnContext>
+      </saml:AuthnStatement>
+      
+   </saml:Assertion>
+   
+</samlp:Response>

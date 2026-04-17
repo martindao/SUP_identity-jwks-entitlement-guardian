@@ -122,18 +122,40 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // API: Simulate cross-tenant
-    if (pathname === '/api/simulate/cross-tenant' && req.method === 'POST') {
-      const injectPath = path.join(__dirname, '..', 'scenarios', 'cross-tenant-exposure', 'inject.js');
-      if (fs.existsSync(injectPath)) {
-        require(injectPath).injectCrossTenantExposure();
-      } else {
-        simulateCrossTenant();
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, scenario: 'cross-tenant' }));
-      return;
-    }
+// API: Simulate cross-tenant
+if (pathname === '/api/simulate/cross-tenant' && req.method === 'POST') {
+  const injectPath = path.join(__dirname, '..', 'scenarios', 'cross-tenant-exposure', 'inject.js');
+  if (fs.existsSync(injectPath)) {
+    require(injectPath).injectCrossTenantExposure();
+  } else {
+    simulateCrossTenant();
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ success: true, scenario: 'cross-tenant' }));
+  return;
+}
+
+// API: Simulate SAML failure
+if (pathname === '/api/simulate/saml' && req.method === 'POST') {
+  const injectPath = path.join(__dirname, '..', 'scenarios', 'saml-failure', 'inject.js');
+  if (fs.existsSync(injectPath)) {
+    require(injectPath).injectSAMLFailure();
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ success: true, scenario: 'saml', timestamp: new Date().toISOString() }));
+  return;
+}
+
+// API: Simulate SCIM failure
+if (pathname === '/api/simulate/scim' && req.method === 'POST') {
+  const injectPath = path.join(__dirname, '..', 'scenarios', 'scim-failure', 'inject.js');
+  if (fs.existsSync(injectPath)) {
+    require(injectPath).injectSCIMFailure();
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ success: true, scenario: 'scim', timestamp: new Date().toISOString() }));
+  return;
+}
 
   // API: Audit JWKS
   if (pathname === '/api/audit/jwks' && req.method === 'POST') {
@@ -179,27 +201,69 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // API: Audit entitlements
-  if (pathname === '/api/audit/entitlements' && req.method === 'POST') {
-    const auditPath = path.join(__dirname, '..', 'auditors', 'entitlement-audit.js');
-    const AUDIT_DIR = path.join(__dirname, '..', 'artifacts', 'audits');
-    let report = { success: true, audit: 'entitlements', checks: [] };
-    
-    if (fs.existsSync(auditPath)) {
-      const auditor = require(auditPath);
-      auditor.runEntitlementAudit();
-      
-      // Read the generated report
-      const reportFile = path.join(AUDIT_DIR, `entitlement-audit-${new Date().toISOString().split('T')[0]}.json`);
-      if (fs.existsSync(reportFile)) {
-        report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
-        report.report_path = `/artifacts/audits/entitlement-audit-${new Date().toISOString().split('T')[0]}.json`;
-      }
+// API: Audit entitlements
+if (pathname === '/api/audit/entitlements' && req.method === 'POST') {
+  const auditPath = path.join(__dirname, '..', 'auditors', 'entitlement-audit.js');
+  const AUDIT_DIR = path.join(__dirname, '..', 'artifacts', 'audits');
+  let report = { success: true, audit: 'entitlements', checks: [] };
+
+  if (fs.existsSync(auditPath)) {
+    const auditor = require(auditPath);
+    auditor.runEntitlementAudit();
+
+    // Read the generated report
+    const reportFile = path.join(AUDIT_DIR, `entitlement-audit-${new Date().toISOString().split('T')[0]}.json`);
+    if (fs.existsSync(reportFile)) {
+      report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+      report.report_path = `/artifacts/audits/entitlement-audit-${new Date().toISOString().split('T')[0]}.json`;
     }
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(report));
-    return;
   }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(report));
+  return;
+}
+
+// API: Audit SAML
+if (pathname === '/api/audit/saml' && req.method === 'POST') {
+  const auditPath = path.join(__dirname, '..', 'auditors', 'saml-audit.js');
+  const AUDIT_DIR = path.join(__dirname, '..', 'artifacts', 'audits');
+  let report = { success: true, audit: 'saml', checks: [], timestamp: new Date().toISOString() };
+
+  if (fs.existsSync(auditPath)) {
+    const auditor = require(auditPath);
+    auditor.runSAMLAudit();
+
+    const reportFile = path.join(AUDIT_DIR, `saml-audit-${new Date().toISOString().split('T')[0]}.json`);
+    if (fs.existsSync(reportFile)) {
+      report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+      report.report_path = `/artifacts/audits/saml-audit-${new Date().toISOString().split('T')[0]}.json`;
+    }
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(report));
+  return;
+}
+
+// API: Audit SCIM
+if (pathname === '/api/audit/scim' && req.method === 'POST') {
+  const auditPath = path.join(__dirname, '..', 'auditors', 'scim-audit.js');
+  const AUDIT_DIR = path.join(__dirname, '..', 'artifacts', 'audits');
+  let report = { success: true, audit: 'scim', checks: [], timestamp: new Date().toISOString() };
+
+  if (fs.existsSync(auditPath)) {
+    const auditor = require(auditPath);
+    auditor.runSCIMAudit();
+
+    const reportFile = path.join(AUDIT_DIR, `scim-audit-${new Date().toISOString().split('T')[0]}.json`);
+    if (fs.existsSync(reportFile)) {
+      report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+      report.report_path = `/artifacts/audits/scim-audit-${new Date().toISOString().split('T')[0]}.json`;
+    }
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(report));
+  return;
+}
 
     // API: Reset
     if (pathname === '/api/reset' && req.method === 'POST') {

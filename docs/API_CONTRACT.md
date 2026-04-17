@@ -162,6 +162,46 @@ Triggers cross-tenant data exposure scenario.
 - Simulates users running broken query
 - Generates tenant isolation violation events
 
+### `POST /api/simulate/saml`
+Triggers SAML authentication failure scenario.
+
+**Request Body**
+No body required.
+
+**Response 200**
+```json
+{
+  "success": true,
+  "scenario": "saml",
+  "timestamp": "2026-04-16T10:00:00.000Z"
+}
+```
+
+**Behavior:**
+- Simulates SAML response validation failure
+- Generates authentication failure events
+- Tests SAML assertion handling
+
+### `POST /api/simulate/scim`
+Triggers SCIM provisioning failure scenario.
+
+**Request Body**
+No body required.
+
+**Response 200**
+```json
+{
+  "success": true,
+  "scenario": "scim",
+  "timestamp": "2026-04-16T10:00:00.000Z"
+}
+```
+
+**Behavior:**
+- Simulates SCIM provisioning error
+- Generates user/group sync failure events
+- Tests SCIM endpoint handling
+
 ---
 
 ## 4. Audit Routes
@@ -225,6 +265,51 @@ Runs entitlement drift audit.
       { "name": "roles_consistent_across_tenants", "status": "passed" },
       { "name": "no_over_privileged_tokens", "status": "passed" },
       { "name": "no_deprecated_permissions_in_use", "status": "passed" }
+    ]
+  }
+}
+```
+
+### `POST /api/audit/saml`
+Runs SAML configuration health audit.
+
+**Response 200**
+```json
+{
+  "success": true,
+  "audit": "saml",
+  "report_ref": "artifacts/audits/saml-audit-2026-04-16.json",
+  "timestamp": "2026-04-16T10:00:00.000Z",
+  "summary": {
+    "passed": 3,
+    "failed": 0,
+    "checks": [
+      { "name": "saml_metadata_valid", "status": "passed" },
+      { "name": "certificate_not_expired", "status": "passed" },
+      { "name": "assertion_consumer_service_configured", "status": "passed" }
+    ]
+  }
+}
+```
+
+### `POST /api/audit/scim`
+Runs SCIM provisioning health audit.
+
+**Response 200**
+```json
+{
+  "success": true,
+  "audit": "scim",
+  "report_ref": "artifacts/audits/scim-audit-2026-04-16.json",
+  "timestamp": "2026-04-16T10:00:00.000Z",
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "checks": [
+      { "name": "scim_endpoint_accessible", "status": "passed" },
+      { "name": "user_schema_compliant", "status": "passed" },
+      { "name": "group_provisioning_enabled", "status": "passed" },
+      { "name": "sync_status_healthy", "status": "passed" }
     ]
   }
 }
